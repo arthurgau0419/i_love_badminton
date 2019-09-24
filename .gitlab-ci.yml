@@ -1,0 +1,47 @@
+stages:
+  - order
+
+before_script:
+  - docker pull 10.10.20.130:5000/very_bad_badminton:latest
+
+.order: &order_template
+  stage: order
+  script:
+    - docker run --rm --env ORDER_ACCOUNT=${ORDER_ACCOUNT} --env ORDER_PASSWORD=${ORDER_PASSWORD} --env ORDER_DATE=${ORDER_DATE} --env ORDER_TIME=${ORDER_TIME} --env ORDER_PID=${ORDER_PID} 10.10.20.130:5000/very_bad_badminton:latest
+  tags:
+    - shell
+
+test_order:
+  <<: *order_template
+  when: manual
+  variables:
+    ORDER_DATE: 2019/10/01
+    ORDER_TIME: 6
+    ORDER_PID: 87
+
+schedules_order:
+  <<: *order_template
+  when: always
+  only:
+    refs:
+      - schedules
+
+#order_19:
+#  <<: *order_template
+#  when: always
+#  only:
+#    refs:
+#      - schedules
+#  variables:
+#    ORDER_TIME: 19
+#    ORDER_PID: 87
+#
+#order_20:
+#  <<: *order_template
+#  when: always
+#  only:
+#    refs:
+#      - schedules
+#  variables:
+#    ORDER_TIME: 20
+#    ORDER_PID: 87
