@@ -24,21 +24,25 @@ class BadmintonSpider(scrapy.Spider):
     def start_requests(self):
         yield scrapy.Request(
             'https://scr.cyc.org.tw/tp12.aspx?module=login_page&files=login',
-            callback=self.parse_login
+            callback=self.parse_login,
+            dont_filter=True
         )
 
-    def parse_login(self, response):
-        captcha_src = response.xpath('//img[@id="ContentPlaceHolder1_CaptchaImage"]/@src').extract_first()
-        captcha_url = response.urljoin(captcha_src)
-        yield scrapy.Request(
+    def captcha_request(self, login_response, captcha_url):
+        return scrapy.Request(
             captcha_url,
             meta={
-                'login_response': response,
+                'login_response': login_response,
                 'captcha_url': captcha_url
             },
             callback=self.login,
             dont_filter=True,
         )
+
+    def parse_login(self, response):
+        captcha_src = response.xpath('//img[@id="ContentPlaceHolder1_CaptchaImage"]/@src').extract_first()
+        captcha_url = response.urljoin(captcha_src)
+        yield self.captcha_request(response, captcha_url)
 
     def login(self, response):
         login_response = response.meta.get('login_response')
@@ -53,7 +57,7 @@ class BadmintonSpider(scrapy.Spider):
         it = iter(re.findall('([0-9]{5})', text))
         text = next(it, None)
         if text:
-            print(text)
+            self.log("驗證碼為: {}".format(text))
             yield scrapy.FormRequest(
                 login_response.urljoin('tp12.aspx?module=login_page&files=login'),
                 method='POST',
@@ -62,18 +66,15 @@ class BadmintonSpider(scrapy.Spider):
                     'loginpw': self.password,
                     'Captcha_text': text
                 },
-                callback=self.do_order
-            )
-        else:
-            yield scrapy.Request(
-                captcha_url,
+                callback=self.do_order,
+                dont_filter=True,
                 meta={
                     'login_response': login_response,
                     'captcha_url': captcha_url
                 },
-                callback=self.login,
-                dont_filter=True,
             )
+        else:
+            yield self.captcha_request(login_response, captcha_url)
 
     def order_request(self, response):
 
@@ -91,16 +92,42 @@ class BadmintonSpider(scrapy.Spider):
         )
 
     def do_order(self, response):
-        yield self.order_request(response)
+        login_response = response.meta.get('login_response')
+        captcha_url = response.meta.get('captcha_url')
+        # 去看他們前端真的就這樣趴
+        args = response.text.split(',')
+        result = next(iter(args), None)
+        if result == '1':
+            self.log('帳號密碼錯誤')
+        elif result == '2':
+            self.log(args[1])
+            if args[1] == '驗證碼錯誤':
+                yield self.captcha_request(login_response, captcha_url)
+        elif result == '3':
+            yield self.captcha_request(login_response, captcha_url)
+        else:
+            yield self.order_request(response)
 
     def parse(self, response):
-        content = response.body.decode()
-        print(re.match("<script> window.location.href=\\'../../../tp12.aspx\?module=net_booking&files=booking_place&X=1&Y=([0-9]{2,})&StepFlag=3\\' </script>", content))
-        if re.match("<script> window.location.href=\\'../../../tp12.aspx\?module=net_booking&files=booking_place&X=1&Y=([0-9]{2,})&StepFlag=3\\' </script>", content):
-            match = next(iter(re.findall("<script> window.location.href=\\'../../../tp12.aspx\?module=net_booking&files=booking_place&X=1&Y=([0-9]{2,})&StepFlag=3\\' </script>", content)), None)
-            print(match)
+        content = response.body.decode('utf8')
+        pattern = "tp12\.aspx\?module=net_booking&files=booking_place&X=(\d+)&Y=(\d+)&StepFlag=3"
+        matchs = re.findall(pattern, content)
+        match = next(iter(matchs), None)
+        if match:
+            result = match[0]
+            if result != '1':
+                delay = 1
+                self.log("預定失敗，({})秒後再試...".format(delay))
+                # 客氣一點
+                # time.sleep(delay)
+                yield self.order_request(response)
+            else:
+                order = match[1]
+                self.log("預定成功(日期:{} 時段:{} 場地:{})，訂單號碼為: {}".format(self.date, self.order_time, self.pid, order))
         else:
-            print('retry')
-            # 客氣一點
-            time.sleep(1)
-            yield self.order_request(response)
+            # 代表需要重新登入
+            yield scrapy.Request(
+                'https://scr.cyc.org.tw/tp12.aspx?module=login_page&files=login',
+                callback=self.parse_login,
+                dont_filter=True
+            )
