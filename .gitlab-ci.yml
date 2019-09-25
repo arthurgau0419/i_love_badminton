@@ -1,11 +1,28 @@
 stages:
+  - build-deploy
   - order
 
-before_script:
-  - docker pull 10.10.20.130:5000/very_bad_badminton:latest
+build-deploy:
+  stage: build-deploy
+  script:    
+    - docker pull 10.10.20.130:5000/very_bad_badminton:latest
+    - docker build -t 10.10.20.130:5000/very_bad_badminton:${CI_COMMIT_TAG} .
+    - docker push 10.10.20.130:5000/very_bad_badminton:${CI_COMMIT_TAG}
+    # 如果是最新的就壓上 latest tag
+    - latestTag=$(git describe --tags `git rev-list --tags --max-count=1`)    
+    - ([ "$latestTag" == "$CI_COMMIT_TAG" ]) && docker tag 10.10.20.130:5000/very_bad_badminton:${CI_COMMIT_TAG} 10.10.20.130:5000/very_bad_badminton:latest && docker push 10.10.20.130:5000/very_bad_badminton:latest
+  only:
+    refs:
+      - tags
+  tags:
+    - shell
+    - git-https
+    - registry
 
 .order: &order_template
   stage: order
+  before_script:
+    - docker pull 10.10.20.130:5000/very_bad_badminton:latest
   script:
     - docker run --rm --env ORDER_ACCOUNT=${ORDER_ACCOUNT} --env ORDER_PASSWORD=${ORDER_PASSWORD} --env ORDER_DATE=${ORDER_DATE} --env ORDER_TIME=${ORDER_TIME} --env ORDER_PID=${ORDER_PID} 10.10.20.130:5000/very_bad_badminton:latest
   tags:
@@ -14,16 +31,20 @@ before_script:
 test_order:
   <<: *order_template
   when: manual
+  except:
+    refs:
+      - schedules
   variables:
     ORDER_DATE: 2019/10/01
     ORDER_TIME: 6
     ORDER_PID: 87
 
 schedules_order:
-  <<: *order_template
+  <<: *order_template  
   when: always
   only:
     refs:
+      - master
       - schedules
 
 #order_19:
