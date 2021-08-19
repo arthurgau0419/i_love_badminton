@@ -1,12 +1,6 @@
 FROM python:3.7
 ENV TZ Asia/Taipei
 
-ENV ORDER_ACCOUNT=''
-ENV ORDER_PASSWORD=''
-ENV ORDER_DATE=''
-ENV ORDER_TIME=''
-ENV ORDER_PID=''
-
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # 安裝系統library
@@ -34,5 +28,5 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 COPY . /code
 
-ENTRYPOINT ["bash", "-c"]
-CMD ["scrapy crawl badminton -a account=${ORDER_ACCOUNT} -a password=${ORDER_PASSWORD} -a date=${ORDER_DATE} -a order_time=${ORDER_TIME} -a pid=${ORDER_PID}"]
+ENTRYPOINT ["scrapy"]
+CMD ["--help"]

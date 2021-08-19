@@ -11,19 +11,23 @@ class BadmintonSpider(scrapy.Spider):
     password = None
     date = None
     order_time = None
+    tp = None
+    pt = None
     pid = None
 
-    def __init__(self, account, password, date, order_time, pid, **kwargs):
+    def __init__(self, account, password, date, order_time, tp, pt, pid, **kwargs):
         self.account = account
         self.password = password
         self.date = date
         self.order_time = order_time
+        self.tp = tp
+        self.pt = pt
         self.pid = pid
         super().__init__(**kwargs)
 
     def start_requests(self):
         yield scrapy.Request(
-            'https://scr.cyc.org.tw/tp12.aspx?module=login_page&files=login',
+            'https://scr.cyc.org.tw/tp{}.aspx?module=login_page&files=login'.format(self.tp),
             callback=self.parse_login,
             dont_filter=True
         )
@@ -59,7 +63,7 @@ class BadmintonSpider(scrapy.Spider):
         if text:
             self.log("驗證碼為: {}".format(text))
             yield scrapy.FormRequest(
-                login_response.urljoin('tp12.aspx?module=login_page&files=login'),
+                login_response.urljoin('tp{}.aspx?module=login_page&files=login'.format(self.tp)),
                 method='POST',
                 formdata={
                     'loginid': self.account,
@@ -78,9 +82,11 @@ class BadmintonSpider(scrapy.Spider):
 
     def order_request(self, response):
 
-        path = 'tp12.aspx?module=net_booking&files=booking_place&StepFlag=25&QPid={}&QTime={}&PT=1&D={}'.format(
+        path = 'tp{}.aspx?module=net_booking&files=booking_place&StepFlag=25&QPid={}&QTime={}&PT={}&D={}'.format(
+            self.tp,
             self.pid,
             self.order_time,
+            self.pt,
             self.date
         )
 
@@ -110,7 +116,7 @@ class BadmintonSpider(scrapy.Spider):
 
     def parse(self, response):
         content = response.body.decode('utf8')
-        pattern = "tp12\.aspx\?module=net_booking&files=booking_place&X=(\d+)&Y=(\d+)&StepFlag=3"
+        pattern = "tp{}\.aspx\?module=net_booking&files=booking_place&X=(\d+)&Y=(\d+)&StepFlag=3".format(self.tp)
         matchs = re.findall(pattern, content)
         match = next(iter(matchs), None)
         if match:
@@ -127,7 +133,7 @@ class BadmintonSpider(scrapy.Spider):
         else:
             # 代表需要重新登入
             yield scrapy.Request(
-                'https://scr.cyc.org.tw/tp12.aspx?module=login_page&files=login',
+                'https://scr.cyc.org.tw/tp{}.aspx?module=login_page&files=login'.format(self.tp),
                 callback=self.parse_login,
                 dont_filter=True
             )
