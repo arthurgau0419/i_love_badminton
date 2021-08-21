@@ -1,13 +1,3 @@
-#### GitLab
-
-CI / CD -> Schedules
-
-![縮圖1](document/1.png)
-
-設定參數
-
-![縮圖2](document/2.png)
-
 #### Local
 
 docker build:
@@ -17,7 +7,7 @@ docker build:
 
 docker run:
 ```shell
-  docker run --rm badminton:latest crawl badminton -a account=$ORDER_ACCOUNT -a password=$ORDER_PASSWORD -a date=$ORDER_DATE -a order_time=$ORDER_TIME  -a tp=$ORDER_TP -a pt=$ORDER_PT -a pid=$ORDER_PID
+  docker run --rm badminton:latest crawl badminton -a account=$ORDER_ACCOUNT -a password=$ORDER_PASSWORD -a fire_date=$FIRE_DATE -a date=$ORDER_DATE -a order_time=$ORDER_TIME  -a tp=$ORDER_TP -a pt=$ORDER_PT -a pid=$ORDER_PID
 ```
 
 #### Variables
@@ -28,17 +18,19 @@ docker run:
 * ORDER_PASSWORD
   *運動中心密碼*
 
+* FIRE_DATE （ORDER_DATE 前一週）
+
 * ORDER_DATE
   `yyyy/MM/dd`
 
 * ORDER_TIME
-  `0~24`
+  `0~24`（逗號分隔）
 
 * ORDER_TP 運動中心(e.g 內湖、大安)
 
 * ORDER_PT 球種(e.g 羽球、桌球、壁球)
 
-* ORDER_PID 球場 id
+* ORDER_PID 球場 id（逗號分隔）
 
 
 #### TP 對照表
